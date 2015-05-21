@@ -349,6 +349,173 @@ public:
 		return 0;
 	}
 
+	//TODO: increase speed with vector iterators
+	template<class T>
+	void findStaffHeightandDistance(T &image, vector<vector<Point> >&stablePaths)
+	{
+		unsigned char WHITE = 0;
+		vector<int> runs[2];
+
+		for (int i=0; i < stablePaths.size(); i++)
+		{
+			vector<Point> &staff = stablePaths[i];
+			for (int j=0; j < staff.size(); j++)
+			{
+				Point curr = staff[j];
+				int col = curr.x();
+				int row = curr.y();
+				unsigned char pel = image.get(Point(row*(image.ncols()) + col));
+				int runBlack = -1;
+				while (pel)
+				{
+					--row;
+					++runBlack;
+					if (row < 0)
+						break;
+					pel = image.get(Point(row*(image.ncols()) + col));
+				}
+
+				int runWhite = 0;
+				while (row >= 0 && (pel = image.get(Point(row*(image.ncols()) + col))) == WHITE)
+				{
+					++runWhite;
+					--row;
+				}
+				runs[1].push_back(runWhite);
+				row = curr.y();
+				pel = image.get(Point(row*(image.ncols()) + col));
+				while (pel)
+				{
+					++row;
+					++runBlack;
+					if (row > image.nrows()-1)
+						break;
+					pel = image.get(Point(row*(image.ncols()) + col));
+				}
+
+				runWhite = 0;
+				while (row < image.nrows() && (pel = image.get(Point(row*(image.ncols()) + col))) == WHITE)
+				{
+					++runWhite;
+					++row;
+				}
+
+				runs[1].push_back(runWhite);
+				runs[0].push_back(runBlack);
+			}
+		}
+
+		//Now find the most repeated black runs and white runs
+		sort(runs[0].begin(), runs[0].end());
+		sort(runs[1].begin(), runs[1].end());
+
+		vector<int> v = runs[0];
+		staffSpaceDistance = -1;
+
+		if (!v.size())
+		{
+			staffLineHeight = 0;
+			staffSpaceDistance = 0;
+		}
+		else
+		{
+			staffLineHeight = findMostRepresentedValueOnSortedVector<int>(runs[0]);
+			staffSpaceDistance = findMostRepresentedValueOnSortedVector<int>(runs[1]);
+		}
+	}
+
+	//=============================================================================
+	template <class T> //HELPER FUNCTION
+	T findMostRepresentedValueOnSortedVector(vector<T>& vec)
+	{
+		T run = vec[0];
+		int freq = 0;
+		int maxFreq = 0;
+		T maxRun = run;
+
+		for (unsigned i = 0; i< vec.size(); i++)
+		{
+			if (vec[i] == run)
+				freq ++;
+			if (freq > maxFreq)
+			{
+				maxFreq = freq;
+				maxRun = run;
+			}
+			if (vec[i] != run)
+			{
+				freq = 0;
+				run = vec[i];
+			}
+		}
+		return maxRun;
+	}
+	//=============================================================================
+
+	template <class T>
+	Point getPoint(int x, T &image) //Returns the point value based on the int value x
+	{
+		int xValue = x % image.ncols();
+		int yValue = (x-xValue) % image.nrows();
+		return Point(xValue, yValue);
+	}
+
+	struct STAT {
+		int pixVal = -1; //value of pixel (1 or 0)
+		int runVal = -1; //runValue
+		int numOfOccurences = 0; //Number of times the pixVal and runVal are identical in a graph
+	}; 
+
+	template <class T>
+	void findStaffHeightandDistanceNoVectors(T &image)
+	{
+
+		STAT *graphStats = new STAT[image.nrows()*image.ncols()/2];
+		int counter = 0;
+		int found;
+		for (int x = 0; x < image.ncols()*image.nrows(); x++)
+		{
+			found = 0;
+			for (int y = 0; y < counter; y++)
+			{
+				if (verRun[x] == graphStats[y].runVal && image.get(getPoint(x, image)) == graphStats[y].pixVal)
+				{
+					graphStats[y].numOfOccurences++;
+					found = 1;
+					break;
+				}
+			}
+			if (!found)
+			{
+				graphStats[counter].runVal = verRun[x];
+				graphStats[counter].pixVal = image.get(getPoint(x, image));
+				graphStats[counter].numOfOccurences++;
+				counter++;
+			}
+		}
+		sort(graphStats, graphStats+counter, structCompare);
+		staffLineHeight = 0;
+		staffSpaceDistance = 0;
+		for (int i = 0; i < counter; i++)
+		{
+			if (!staffLineHeight)
+			{
+				if (!graphStats[i].pixVal)
+					staffLineHeight = graphStats[i].runVal;
+			}
+			if (!staffSpaceDistance)
+			{
+				if (graphStats[i].pixVal)
+					staffSpaceDistance = graphStats[i].runVal;
+			}
+		}
+	}
+
+	static bool structCompare(STAT a, STAT b)
+	{
+		return a.numOfOccurences < b.numOfOccurences;
+	}
+
 	//Used for testing
 	int fillValues() 
 	{
@@ -368,5 +535,6 @@ float returnGraphWeights(T &image)
 	vector <vector<Point> > validStaves;
 	stableStaffLineFinder slf1 (image);
 	slf1.constructGraphWeights(image);
-	return slf1.verRun[500];
+	slf1.findStaffHeightandDistanceNoVectors(image);
+	return slf1.staffSpaceDistance;
 }
