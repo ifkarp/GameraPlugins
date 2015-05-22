@@ -4,7 +4,7 @@
 
   /*
 	Preprocessing:
-		1. Compute staffspaceheight and stafflineheight
+		*1. Compute staffspaceheight and stafflineheight (Need to relax values so that similar staff spaces/line heights are taken together)
 		*2. Compute weights of the graph
 
 	Main Cycle:
@@ -461,9 +461,9 @@ public:
 	}
 
 	struct STAT {
-		int pixVal = -1; //value of pixel (1 or 0)
-		int runVal = -1; //runValue
-		int numOfOccurences = 0; //Number of times the pixVal and runVal are identical in a graph
+		int pixVal; //value of pixel (1 or 0)
+		int runVal; //runValue
+		int numOfOccurences; //Number of times the pixVal and runVal are identical in a graph
 	}; 
 
 	template <class T>
@@ -489,7 +489,7 @@ public:
 			{
 				graphStats[counter].runVal = verRun[x];
 				graphStats[counter].pixVal = image.get(getPoint(x, image));
-				graphStats[counter].numOfOccurences++;
+				graphStats[counter].numOfOccurences = 1;
 				counter++;
 			}
 		}
@@ -498,22 +498,23 @@ public:
 		staffSpaceDistance = 0;
 		for (int i = 0; i < counter; i++)
 		{
-			if (!staffLineHeight)
+			if (!staffLineHeight) //Has no assigned value yet
 			{
-				if (!graphStats[i].pixVal)
-					staffLineHeight = graphStats[i].runVal;
+				if (graphStats[i].pixVal) //pixel is black
+					staffLineHeight = graphStats[i].runVal; //Assign value to StaffLineHeight
 			}
-			if (!staffSpaceDistance)
+			if (!staffSpaceDistance) //Has no assigned value yet
 			{
-				if (graphStats[i].pixVal)
-					staffSpaceDistance = graphStats[i].runVal;
+				if (!graphStats[i].pixVal) //pixel is white
+					staffSpaceDistance = graphStats[i].runVal; //Assign value to StaffSpaceDistance
 			}
 		}
 	}
 
+	//Used in sort() to sort items from greatest number of occurences to lowest number of occurences
 	static bool structCompare(STAT a, STAT b)
 	{
-		return a.numOfOccurences < b.numOfOccurences;
+		return a.numOfOccurences > b.numOfOccurences;
 	}
 
 	//Used for testing
@@ -536,5 +537,5 @@ float returnGraphWeights(T &image)
 	stableStaffLineFinder slf1 (image);
 	slf1.constructGraphWeights(image);
 	slf1.findStaffHeightandDistanceNoVectors(image);
-	return slf1.staffSpaceDistance;
+	return slf1.staffLineHeight;
 }
