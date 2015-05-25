@@ -3,7 +3,7 @@ from gamera.plugin import *
 class returnGraphWeights(PluginFunction):
     """Fills the entire image with white."""
     category = "Stable Paths Toolkit"
-    return_type = Float("volume")
+    return_type = Float("values")
     self_type = ImageType([ONEBIT])
 
 class stablePaths(PluginModule):

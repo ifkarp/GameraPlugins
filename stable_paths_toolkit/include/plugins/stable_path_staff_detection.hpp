@@ -4,7 +4,8 @@
 
   /*
 	Preprocessing:
-		*1. Compute staffspaceheight and stafflineheight (Need to relax values so that similar staff spaces/line heights are taken together)
+		*1. Compute staffspaceheight and stafflineheight (Need to relax values so that similar staff spaces/line heights are taken together. Also need to make it so only most common
+				value from each column is considered)
 		*2. Compute weights of the graph
 
 	Main Cycle:
@@ -198,7 +199,36 @@ public:
 		verRun = new int[image.nrows()*image.ncols()];
 		verDistance = new int[image.nrows()*image.ncols()];
 		memset (verDistance, 0, sizeof(int)*image.nrows()*image.ncols());
-		staffLineHeight = image.nrows()*image.ncols();
+	}
+
+	template<class T>
+	int sumOfValuesInVector (vector<Point>& vec, T &image)
+	{
+		size_t len = vec.size();
+		int sumOfValues = 0;
+		int startCol = 0;
+		int endCol = image.ncols()-1;
+		for (int i = startCol; i <= endCol; i++)
+		{
+			int col = vec[i].x();
+			int row = vec[i].y();
+			unsigned char pel = image.get(getPoint((row*image.ncols() + col), image));
+			sumOfValues += pel;
+		}
+		return sumOfValues;
+	}
+
+	template<class T>
+	bool tooMuchWhite (vector<Point> &vec, T &image, double minBlackPerc)
+	{
+		int sumOfValues = sumOfValuesInVector(vec, image);
+		size_t len = vec.size();
+		int startCol = 0;
+		int endCol = image.ncols()-1;
+		int usedSize = endCol-startCol+1;
+		if (sumOfValues < 1*(1-minBlackPerc)*(usedSize))
+			return true;
+		return false;
 	}
 
 	template<class T>
@@ -364,7 +394,7 @@ public:
 				Point curr = staff[j];
 				int col = curr.x();
 				int row = curr.y();
-				unsigned char pel = image.get(Point(row*(image.ncols()) + col));
+				unsigned char pel = image.get(getPoint(row*(image.ncols()) + col, image));
 				int runBlack = -1;
 				while (pel)
 				{
@@ -372,29 +402,29 @@ public:
 					++runBlack;
 					if (row < 0)
 						break;
-					pel = image.get(Point(row*(image.ncols()) + col));
+					pel = image.get(getPoint(row*(image.ncols()) + col, image));
 				}
 
 				int runWhite = 0;
-				while (row >= 0 && (pel = image.get(Point(row*(image.ncols()) + col))) == WHITE)
+				while (row >= 0 && (pel = image.get(getPoint(row*(image.ncols()) + col, image))) == WHITE)
 				{
 					++runWhite;
 					--row;
 				}
 				runs[1].push_back(runWhite);
 				row = curr.y();
-				pel = image.get(Point(row*(image.ncols()) + col));
+				pel = image.get(getPoint(row*(image.ncols()) + col, image));
 				while (pel)
 				{
 					++row;
 					++runBlack;
 					if (row > image.nrows()-1)
 						break;
-					pel = image.get(Point(row*(image.ncols()) + col));
+					pel = image.get(getPoint(row*(image.ncols()) + col, image));
 				}
 
 				runWhite = 0;
-				while (row < image.nrows() && (pel = image.get(Point(row*(image.ncols()) + col))) == WHITE)
+				while (row < image.nrows() && (pel = image.get(getPoint(row*(image.ncols()) + col, image)) == WHITE))
 				{
 					++runWhite;
 					++row;
@@ -467,7 +497,7 @@ public:
 	}; 
 
 	template <class T>
-	void findStaffHeightandDistanceNoVectors(T &image)
+	void findStaffHeightandDistanceNoVectors(T &image) //Doesn't work
 	{
 
 		STAT *graphStats = new STAT[image.nrows()*image.ncols()/2];
@@ -501,12 +531,12 @@ public:
 			if (!staffLineHeight) //Has no assigned value yet
 			{
 				if (graphStats[i].pixVal) //pixel is black
-					staffLineHeight = graphStats[i].runVal; //Assign value to StaffLineHeight
+					staffLineHeight = graphStats[i].pixVal; //Assign value to StaffLineHeight
 			}
 			if (!staffSpaceDistance) //Has no assigned value yet
 			{
 				if (!graphStats[i].pixVal) //pixel is white
-					staffSpaceDistance = graphStats[i].runVal; //Assign value to StaffSpaceDistance
+					staffSpaceDistance = graphStats[i].pixVal; //Assign value to StaffSpaceDistance
 			}
 		}
 	}
@@ -527,6 +557,22 @@ public:
 		}
 		return x;
 	}
+	template<class T>T &image)
+	void stableStaffDetection( vector <vector <Point> > &validStaves, T &image)
+	{
+		constructGraphWeights(image);
+		// myIplImage* imgErode  = myCloneImage(img);
+		// myVerticalErodeImage (imgErode);
+		// myIplImage* imgErodedCopy  = myCloneImage (imgErode);
+
+		vector<int> npaths;
+
+		bool first_time = 1;
+		double blackPerc;
+		vector<Point> bestStaff;
+
+		while(1)
+	}
 };
 
 
@@ -536,6 +582,6 @@ float returnGraphWeights(T &image)
 	vector <vector<Point> > validStaves;
 	stableStaffLineFinder slf1 (image);
 	slf1.constructGraphWeights(image);
-	slf1.findStaffHeightandDistanceNoVectors(image);
-	return slf1.staffLineHeight;
+	slf1.findStaffHeightandDistance(image, validStaves);
+	return slf1.staffSpaceDistance;
 }
