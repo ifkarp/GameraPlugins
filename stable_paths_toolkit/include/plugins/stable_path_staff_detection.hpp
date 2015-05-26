@@ -26,6 +26,7 @@
 	*/
 
 #include <vector>
+#include <algorithm>
 
 using namespace std;
 using namespace Gamera;
@@ -79,11 +80,10 @@ public:
 		return Point(xValue, yValue);
 	}
 
-	template <class T>
-	Point getPointView(int x, OneBitImageView * image) //Returns the point value based on the int value x
+	Point getPointView(int x, int width, int height) //Returns the point value based on the int value x
 	{
-		int xValue = x % image->ncols();
-		int yValue = (x-xValue) % image->nrows();
+		int xValue = x % width;
+		int yValue = (x-xValue) % height;
 		return Point(xValue, yValue);
 	}
 
@@ -103,27 +103,57 @@ public:
 
 		return dest_view;
 	}
-
-	template<class T>
-	OneBitImageView* myVerticalErodeImage(T &image)
+	unsigned char maxVal(unsigned char a, unsigned char b)
 	{
-		OneBitImageView* erodedImage = myCloneImage(image);
-
-		for (int c = 0; c < image->ncols(); c++)
+		if (a > b)
 		{
-			unsigned char pel_prev = image->get(getPointView(c, image));
-			unsigned char pel_curr = image->get(getPointView(c, image));
-			for (int r = 0; r < image->nrows() - 1; r++)
+			return a;
+		}
+		else
+		{
+			return b;
+		}
+	}
+
+	// template<class T>
+	void myVerticalErodeImage(OneBitImageView * img, int width, int height)
+	{
+		for (int c = 0; c < width; c++)
+		{
+			unsigned char pel_prev = img->get(getPointView(c, width, height));
+			unsigned char pel_curr = img->get(getPointView(c, width, height));
+			for (int r = 0; r < height; r++)
 			{
-				unsigned char pel_next = image->get(getPointView((r+1)*image->cols() + c));
-				unsigned char pel = min<unsigned char>(pel_prev, pel_curr, pel_next);
-				image->set(getPointView(r*(image->ncols() + c), image), pel);
+				unsigned char pel_next = img->get(getPointView((r+1)*width + c, width, height));
+				unsigned char pel = maxVal(pel_prev, maxVal(pel_curr, pel_next));
+				img->set(getPointView(r*width + c, width, height), pel);
 				pel_prev = pel_curr;
 				pel_curr = pel_next;
 			}
-			image->set(getPointView((image->nrows()-1)*(image->ncols()) + c, image), std::min<unsigned char>(pel_prev, pel_curr));
+			img->set(getPointView((height-1)*(width) + c, width, height), maxVal(pel_prev, pel_curr));
 		}
 	}
+
+	// template<class T>
+	// OneBitImageView* myVerticalErodeImage(T &image)
+	// {
+	// 	OneBitImageView* erodedImage = myCloneImage(image);
+
+	// 	for (int c = 0; c < image.ncols(); c++)
+	// 	{
+	// 		unsigned int pel_prev = image.get(getPoint(c, image));
+	// 		unsigned int pel_curr = image.get(getPoint(c, image));
+	// 		for (int r = 0; r < image.nrows() - 1; r++)
+	// 		{
+	// 			unsigned int pel_next = image.get(getPoint((r+1)*image->cols() + c));
+	// 			unsigned int pel = max<unsigned int>(pel_prev, pel_curr, pel_next);
+	// 			erodedImage->set(getPoint(r*(image->ncols() + c), image), pel);
+	// 			pel_prev = pel_curr;
+	// 			pel_curr = pel_next;
+	// 		}
+	// 		erodedImage->set(getPoint((image.nrows()-1)*(image.ncols()) + c, image), std::max<unsigned int>(pel_prev, pel_curr));
+	// 	}
+	// }
 
 	//=========================================================================================
 	//							Functions
@@ -746,6 +776,6 @@ OneBitImageView* copyImage(T &image)
 {
 	stableStaffLineFinder slf1 (image);
 	OneBitImageView* new1 = slf1.myCloneImage(image);
-	slf1.myVerticalErodeImage(new1);
+	slf1.myVerticalErodeImage(new1, image.ncols(), image.nrows());
 	return new1;
 }
