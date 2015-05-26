@@ -21,7 +21,7 @@
 		3. Smooth and trim stafflines
 
 		Notes:
-			- Big difference is that in original code the black values are assumed to have a value of 0, whites have any other value
+			- Big difference is that in original code the values are in grayscale
 			- Currently being implemented only for one bit images
 	*/
 
@@ -63,6 +63,72 @@ public:
 	int staffLineHeight;
 	int staffSpaceDistance;
 	time_t globalStart;
+
+	typedef ImageData<OneBitPixel> OneBitImageData;
+	typedef ImageView<OneBitImageData> OneBitImageView;
+
+	//=========================================================================================
+	//							Image Cloners/Eroders
+	//=========================================================================================
+
+	template <class T>
+	Point getPoint(int x, T &image) //Returns the point value based on the int value x
+	{
+		int xValue = x % image.ncols();
+		int yValue = (x-xValue) % image.nrows();
+		return Point(xValue, yValue);
+	}
+
+	template <class T>
+	Point getPointView(int x, OneBitImageView * image) //Returns the point value based on the int value x
+	{
+		int xValue = x % image->ncols();
+		int yValue = (x-xValue) % image->nrows();
+		return Point(xValue, yValue);
+	}
+
+	template<class T>
+	OneBitImageView* myCloneImage(T &image)
+	{
+		OneBitImageData* dest_data = new OneBitImageData(image.size());
+		OneBitImageView* dest_view = new OneBitImageView(*dest_data);
+
+		for (size_t r = 0; r < image.nrows(); r++)
+		{
+			for (size_t c = 0; c < image.ncols(); c++)
+			{
+				dest_view->set(Point(c, r), image.get(Point(c, r)));
+			}
+		}
+
+		return dest_view;
+	}
+
+	template<class T>
+	OneBitImageView* myVerticalErodeImage(T &image)
+	{
+		OneBitImageView* erodedImage = myCloneImage(image);
+
+		for (int c = 0; c < image->ncols(); c++)
+		{
+			unsigned char pel_prev = image->get(getPointView(c, image));
+			unsigned char pel_curr = image->get(getPointView(c, image));
+			for (int r = 0; r < image->nrows() - 1; r++)
+			{
+				unsigned char pel_next = image->get(getPointView((r+1)*image->cols() + c));
+				unsigned char pel = min<unsigned char>(pel_prev, pel_curr, pel_next);
+				image->set(getPointView(r*(image->ncols() + c), image), pel);
+				pel_prev = pel_curr;
+				pel_curr = pel_next;
+			}
+			image->set(getPointView((image->nrows()-1)*(image->ncols()) + c, image), std::min<unsigned char>(pel_prev, pel_curr));
+		}
+	}
+
+	//=========================================================================================
+	//							Functions
+	//=========================================================================================
+	
 
 	template<class T>
 	void constructGraphWeights(T &image) 
@@ -482,14 +548,6 @@ public:
 	}
 	//=============================================================================
 
-	template <class T>
-	Point getPoint(int x, T &image) //Returns the point value based on the int value x
-	{
-		int xValue = x % image.ncols();
-		int yValue = (x-xValue) % image.nrows();
-		return Point(xValue, yValue);
-	}
-
 	struct STAT {
 		int pixVal; //value of pixel (1 or 0)
 		int runVal; //runValue
@@ -557,6 +615,7 @@ public:
 		}
 		return x;
 	}
+
 	template<class T>
 	void stableStaffDetection(vector <vector <Point> > &validStaves, T &image)
 	{
@@ -680,4 +739,13 @@ float returnGraphWeights(T &image)
 	slf1.constructGraphWeights(image);
 	slf1.findStaffHeightandDistance(image, validStaves);
 	return slf1.staffSpaceDistance;
+}
+
+template<class T>
+OneBitImageView* copyImage(T &image)
+{
+	stableStaffLineFinder slf1 (image);
+	OneBitImageView* new1 = slf1.myCloneImage(image);
+	slf1.myVerticalErodeImage(new1);
+	return new1;
 }
