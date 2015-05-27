@@ -76,14 +76,14 @@ public:
 	Point getPoint(int x, T &image) //Returns the point value based on the int value x
 	{
 		int xValue = x % image.ncols();
-		int yValue = (x-xValue) % image.nrows();
+		int yValue = (x-xValue) / image.nrows();
 		return Point(xValue, yValue);
 	}
 
 	Point getPointView(int x, int width, int height) //Returns the point value based on the int value x
 	{
 		int xValue = x % width;
-		int yValue = (x-xValue) % height;
+		int yValue = (x-xValue) / height;
 		return Point(xValue, yValue);
 	}
 
@@ -122,14 +122,20 @@ public:
 		{
 			unsigned char pel_prev = img->get(getPointView(c, width, height));
 			unsigned char pel_curr = img->get(getPointView(c, width, height));
-			for (int r = 0; r < height; r++)
+			for (int r = 0; r < height-1; r++)
 			{
-				unsigned char pel_next = img->get(getPointView((r+1)*width + c, width, height));
+				printf("Current Point: (%d, %d)", c, r);
+				int curr_pixel = r*width + c;
+				int next_row_pixel = (r+1)*width + c;
+				unsigned char pel_next = img->get(getPointView(next_row_pixel, width, height));
 				unsigned char pel = maxVal(pel_prev, maxVal(pel_curr, pel_next));
-				img->set(getPointView(r*width + c, width, height), pel);
+				img->set(getPointView(curr_pixel, width, height), pel);
 				pel_prev = pel_curr;
 				pel_curr = pel_next;
 			}
+			//printf("Current Point: (%d, %d)", c, r);
+			// img->set(Point(0,538), 1);
+			// img->set(Point(0,539), 1);
 			img->set(getPointView((height-1)*(width) + c, width, height), maxVal(pel_prev, pel_curr));
 		}
 	}
@@ -776,6 +782,7 @@ OneBitImageView* copyImage(T &image)
 {
 	stableStaffLineFinder slf1 (image);
 	OneBitImageView* new1 = slf1.myCloneImage(image);
-	slf1.myVerticalErodeImage(new1, image.ncols(), image.nrows());
+	printf("Rows: %lu, Columns: %lu \n", image.nrows(), image.ncols());
+	slf1.myVerticalErodeImage(new1, 3479, 1820);
 	return new1;
 }
