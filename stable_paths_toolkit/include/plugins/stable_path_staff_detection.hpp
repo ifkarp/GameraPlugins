@@ -56,7 +56,7 @@ public:
 	static const weight_t TOP_VALUE = (INT_MAX/2);
 
 	int* verRun; //length of vertical run of same color pixels. 
-	int* verDistance; 
+	int* verDistance; //Minimum distance of a pixel of the same color NOT in the same run of pixels of the same color
 	NODE* graphPath;
 	NODEGRAPH* graphWeight;
 
@@ -107,10 +107,9 @@ public:
 	// template<class T>
 	void myVerticalErodeImage(OneBitImageView * img, int width, int height)
 	{
-		int pel;
-		int pel_prev;
-		int pel_curr;
-		int pel_next;
+		unsigned char pel_prev;
+		unsigned char pel_curr;
+		unsigned char pel_next;
 		for (int c = 0; c < width; c++)
 		{
 			pel_prev = img->get(getPointView(c, width, height));
@@ -125,17 +124,9 @@ public:
 				{
 					img->set(getPointView(curr_pixel, width, height), 1);
 				}
-				// else
-				// {
-				// 	//img->set(Point(c, r), 0);
-				// }
-				//img->set(Point(c, r), 0);
 				pel_prev = pel_curr;
 				pel_curr = pel_next;
 			}
-			//printf("Current Point: (%d, %d)", c, r);
-			// img->set(Point(0,538), 1);
-			// img->set(Point(0,539), 1);
 			if (pel_prev || pel_curr)
 			{
 				img->set(getPointView((height-1)*(width) + c, width, height), 1);
@@ -150,9 +141,6 @@ public:
 	//=========================================================================================
 	//							Functions
 	//=========================================================================================
-	
-	// template<class T>
-	// void 
 
 	template<class T>
 	void constructGraphWeights(T &image) 
@@ -204,14 +192,14 @@ public:
 				while (row > 0 && curr_pel == pel) 
 				{
 					row--;
-					curr_pel = image.get(Point(c,r));
+					curr_pel = image.get(Point(c,row));
 				}
 
 				int run1 = 1;
 				while (row > 0 && curr_pel != pel) 
 				{
 					row--;
-					curr_pel = image.get(Point(c,r));
+					curr_pel = image.get(Point(c,row));
 					run1++;
 				}
 
@@ -220,18 +208,18 @@ public:
 				while (row < image.nrows()-1 && curr_pel == pel) 
 				{
 					row++;
-					curr_pel = image.get(Point(c,r));
+					curr_pel = image.get(Point(c,row));
 				}
 
 				int run2 = 1;
 				while (row < image.nrows()-1 && curr_pel != pel) 
 				{
 					row++;
-					curr_pel = image.get(Point(c,r));
+					curr_pel = image.get(Point(c,row));
 					run2++;
 				}
 
-				verDistance [r*image.ncols() + c] = min(run1, run2);
+				verDistance[r*image.ncols() + c] = min(run1, run2);
 			}
 		}
 
@@ -297,10 +285,34 @@ public:
 		memset (verDistance, 0, sizeof(int)*image.nrows()*image.ncols());
 	}
 
+	double staffDissimilarity(vector<Point>& staff1, vector<Point>& staff2)
+	{
+		double currAvg1 = 0;
+		double currAvg2 = 0;
+		for (size_t i = 0; i < staff1.size(); i++)
+		{
+			currAvg1 += staff1[i].y();
+			currAvg2 += staff2[i].y();
+		}
+
+		currAvg1 /= staff1.size();
+		currAvg2 /= staff2.size();
+		double avgDiff = 0;
+
+		for (size_t i = 0; i < staff1.size(); i++)
+		{
+			double curr_dif = abs(staff1[i].y() - staff2[i].y() - currAvg1+currAvg2);
+			avgDiff += (curr_dif*curr_dif);
+		}
+		avgDiff /= staff1.size();
+		avgDiff = sqrt(avgDiff);
+		return avgDiff;
+	}
+
 	template<class T>
 	int sumOfValuesInVector (vector<Point>& vec, T &image)
 	{
-		size_t len = vec.size();
+		//size_t len = vec.size();
 		int sumOfValues = 0;
 		int startCol = 0;
 		int endCol = image.ncols()-1;
@@ -318,7 +330,7 @@ public:
 	bool tooMuchWhite (vector<Point> &vec, T &image, double minBlackPerc)
 	{
 		int sumOfValues = sumOfValuesInVector(vec, image);
-		size_t len = vec.size();
+		//size_t len = vec.size();
 		int startCol = 0;
 		int endCol = image.ncols()-1;
 		int usedSize = endCol-startCol+1;
@@ -328,7 +340,7 @@ public:
 	}
 
 	template<class T>
-	int findAllStablePaths(T &image, int startCol, int endCol, std::vector <vector<Point> > &stablePaths) 
+	int findAllStablePaths(T &image, int startCol, int endCol, vector <vector<Point> > &stablePaths) 
 	{
 		stablePaths.clear();
 		int width = image.ncols();
@@ -585,7 +597,7 @@ public:
 	}; 
 
 	template <class T>
-	void findStaffHeightandDistanceNoVectors(T &image) //Doesn't work
+	void findStaffHeightandDistanceNoVectors(T &image) //Works only for staffLineHeight
 	{
 
 		STAT *graphStats = new STAT[image.nrows()*image.ncols()/2];
@@ -629,6 +641,19 @@ public:
 		}
 	}
 
+	// template <class T>
+	// void findStaffHeightandDistanceNoVectors2(T &image)
+	// {
+	// 	STAT *graphStats = new STAT[image.ncols()][image.nrows()/2];
+	// 	int counter = 0;
+	// 	int found;
+
+	// 	for (int c = 0; x < image.ncols(); c++)
+	// 	{
+
+	// 	}
+	// }
+
 	//Used in sort() to sort items from greatest number of occurences to lowest number of occurences
 	static bool structCompare(STAT a, STAT b)
 	{
@@ -651,7 +676,7 @@ public:
 	{
 		constructGraphWeights(image);
 		OneBitImageView* imgErode = myCloneImage(image);
-		myVerticalErodeImage(imgErode);
+		myVerticalErodeImage(imgErode, image.ncols(), image.nrows());
 		// myIplImage* imgErode  = myCloneImage(img);
 		// myVerticalErodeImage (imgErode);
 		// myIplImage* imgErodedCopy  = myCloneImage (imgErode);
@@ -700,23 +725,23 @@ public:
 
 				double bestBlackPerc = medianSumOfValues/(1.0*bestStaff.size());
 				blackPerc = max(MIN_BLACK_PER, bestBlackPerc*0.8);
-				cout <<"bestBlackPerc: " <<bestBlackPerc <<" blackPerc: " <<blackPerc <<endl
+				cout <<"bestBlackPerc: " <<bestBlackPerc <<" blackPerc: " <<blackPerc <<endl;
 			}
 
 			for (size_t i = 0; i < stablePaths.size(); i++)
 			{
 				vector<Point> staff = stablePaths[i];
 
-				// if (tooMuchWhite(staff, imgErode, blackPerc))
-				// {
-				// 	continue;
-				// }
-				// double dissimilarity = staffDissimilarity(bestStaff, staff);
-				// if (dissimilarity > 4*staffSpaceDistance)
-				// {
-				// 	printf ("\tToo Dissimilar\n");
-				// 	continue;
-				// }
+				if (tooMuchWhite(staff, imgErode, blackPerc))
+				{
+					continue;
+				}
+				double dissimilarity = staffDissimilarity(bestStaff, staff);
+				if (dissimilarity > 4*staffSpaceDistance)
+				{
+					printf ("\tToo Dissimilar\n");
+					continue;
+				}
 
 				validStaves.push_back(staff);
 				curr_n_paths++;
