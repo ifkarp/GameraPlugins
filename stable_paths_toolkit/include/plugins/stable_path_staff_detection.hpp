@@ -76,14 +76,14 @@ public:
 	Point getPoint(int x, T &image) //Returns the point value based on the int value x
 	{
 		int xValue = x % image.ncols();
-		int yValue = (x-xValue) / image.nrows();
+		int yValue = (x-xValue) / image.ncols();
 		return Point(xValue, yValue);
 	}
 
 	Point getPointView(int x, int width, int height) //Returns the point value based on the int value x
 	{
 		int xValue = x % width;
-		int yValue = (x-xValue) / height;
+		int yValue = (x-xValue) / width;
 		return Point(xValue, yValue);
 	}
 
@@ -103,68 +103,56 @@ public:
 
 		return dest_view;
 	}
-	unsigned char maxVal(unsigned char a, unsigned char b)
-	{
-		if (a > b)
-		{
-			return a;
-		}
-		else
-		{
-			return b;
-		}
-	}
 
 	// template<class T>
 	void myVerticalErodeImage(OneBitImageView * img, int width, int height)
 	{
+		int pel;
+		int pel_prev;
+		int pel_curr;
+		int pel_next;
 		for (int c = 0; c < width; c++)
 		{
-			unsigned char pel_prev = img->get(getPointView(c, width, height));
-			unsigned char pel_curr = img->get(getPointView(c, width, height));
+			pel_prev = img->get(getPointView(c, width, height));
+			pel_curr = img->get(getPointView(c, width, height));
 			for (int r = 0; r < height-1; r++)
 			{
-				printf("Current Point: (%d, %d)", c, r);
 				int curr_pixel = r*width + c;
+				//printf("Current Point: (%d, %d) Current Pixel Value: (%d/ %d)", c, r, curr_pixel, width*height);
 				int next_row_pixel = (r+1)*width + c;
-				unsigned char pel_next = img->get(getPointView(next_row_pixel, width, height));
-				unsigned char pel = maxVal(pel_prev, maxVal(pel_curr, pel_next));
-				img->set(getPointView(curr_pixel, width, height), pel);
+				pel_next = img->get(getPointView(next_row_pixel, width, height));
+				if (pel_prev || pel_curr || pel_next)
+				{
+					img->set(getPointView(curr_pixel, width, height), 1);
+				}
+				// else
+				// {
+				// 	//img->set(Point(c, r), 0);
+				// }
+				//img->set(Point(c, r), 0);
 				pel_prev = pel_curr;
 				pel_curr = pel_next;
 			}
 			//printf("Current Point: (%d, %d)", c, r);
 			// img->set(Point(0,538), 1);
 			// img->set(Point(0,539), 1);
-			img->set(getPointView((height-1)*(width) + c, width, height), maxVal(pel_prev, pel_curr));
+			if (pel_prev || pel_curr)
+			{
+				img->set(getPointView((height-1)*(width) + c, width, height), 1);
+			}
+			else
+			{
+				img->set(getPointView((height-1)*(width) + c, width, height), 0);
+			}
 		}
 	}
-
-	// template<class T>
-	// OneBitImageView* myVerticalErodeImage(T &image)
-	// {
-	// 	OneBitImageView* erodedImage = myCloneImage(image);
-
-	// 	for (int c = 0; c < image.ncols(); c++)
-	// 	{
-	// 		unsigned int pel_prev = image.get(getPoint(c, image));
-	// 		unsigned int pel_curr = image.get(getPoint(c, image));
-	// 		for (int r = 0; r < image.nrows() - 1; r++)
-	// 		{
-	// 			unsigned int pel_next = image.get(getPoint((r+1)*image->cols() + c));
-	// 			unsigned int pel = max<unsigned int>(pel_prev, pel_curr, pel_next);
-	// 			erodedImage->set(getPoint(r*(image->ncols() + c), image), pel);
-	// 			pel_prev = pel_curr;
-	// 			pel_curr = pel_next;
-	// 		}
-	// 		erodedImage->set(getPoint((image.nrows()-1)*(image.ncols()) + c, image), std::max<unsigned int>(pel_prev, pel_curr));
-	// 	}
-	// }
 
 	//=========================================================================================
 	//							Functions
 	//=========================================================================================
 	
+	// template<class T>
+	// void 
 
 	template<class T>
 	void constructGraphWeights(T &image) 
@@ -179,7 +167,7 @@ public:
 			unsigned char val = WHITE;
 			for (int r = 0; r < image.nrows(); r++) 
 			{
-				unsigned char pel = image.get(Point(r,c));
+				unsigned char pel = image.get(Point(c,r));
 				if (pel == val) 
 				{
 					run++;
@@ -190,16 +178,17 @@ public:
 					{
 						verRun[row*image.ncols() + c] = run;
 					}
-					val = !val; //Changes value from 0 to 1 or from 1 to 0
+					val = !val; //Changes value from 0 to 1 or from 1 to 
+					run = 1;
 				}
-				if (run > 0) 
+			}
+			if (run > 0) 
+			{
+				//Last run on the column
+				int len = run;
+				for (int row = image.nrows()-1; len > 0; len--, row--) 
 				{
-					//Last run on the column
-					int len = run;
-					for (int row = image.nrows()-1; len > 0; len--, row--) 
-					{
-						verRun[row*image.ncols() + c] = run;
-					}
+					verRun[row*image.ncols() + c] = run;
 				}
 			}
 		}
@@ -209,20 +198,20 @@ public:
 		{
 			for (int r = 0; r < image.nrows(); r++) 
 			{
-				unsigned char pel = image.get(Point(r,c));
+				unsigned char pel = image.get(Point(c,r));
 				int row = r;
 				unsigned char curr_pel = pel;
 				while (row > 0 && curr_pel == pel) 
 				{
 					row--;
-					curr_pel = image.get(Point(r,c));
+					curr_pel = image.get(Point(c,r));
 				}
 
 				int run1 = 1;
 				while (row > 0 && curr_pel != pel) 
 				{
 					row--;
-					curr_pel = image.get(Point(r,c));
+					curr_pel = image.get(Point(c,r));
 					run1++;
 				}
 
@@ -231,14 +220,14 @@ public:
 				while (row < image.nrows()-1 && curr_pel == pel) 
 				{
 					row++;
-					curr_pel = image.get(Point(r,c));
+					curr_pel = image.get(Point(c,r));
 				}
 
 				int run2 = 1;
 				while (row < image.nrows()-1 && curr_pel != pel) 
 				{
 					row++;
-					curr_pel = image.get(Point(r,c));
+					curr_pel = image.get(Point(c,r));
 					run2++;
 				}
 
@@ -251,16 +240,21 @@ public:
 		{
 			for (int c = 0; c < image.ncols()-1; c++) 
 			{
-				graphWeight[r*image.ncols() + c].weight_hor = weightFunction(image, Point(r,c), Point(r, c+1), NEIGHBOUR4);
+				graphWeight[r*image.ncols() + c].weight_hor = weightFunction(image, Point(c,r), Point(c+1, r), NEIGHBOUR4);
 				if (r > 0)
-					graphWeight[r*image.ncols() + c].weight_up = weightFunction(image, Point(r,c), Point(r-1, c+1), NEIGHBOUR8);
+					graphWeight[r*image.ncols() + c].weight_up = weightFunction(image, Point(c,r), Point(c+1, r-1), NEIGHBOUR8);
 				else
 					graphWeight[r*image.ncols() + c].weight_up = TOP_VALUE;
 				if (r < image.nrows()-1)
-					graphWeight[r*image.ncols() + c].weight_down = weightFunction(image, Point(r,c), Point(r+1, c+1), NEIGHBOUR8);
+					graphWeight[r*image.ncols() + c].weight_down = weightFunction(image, Point(c,r), Point(c+1, r+1), NEIGHBOUR8);
 				else
 					graphWeight[r*image.ncols() + c].weight_down = TOP_VALUE;
 			}
+		}
+
+		for (int x = 0; x < image.nrows()*image.ncols(); x++)
+		{
+			printf("Value: %d -> verDistance: %d -> verRun: %d\n", x, verDistance[x], verRun[x]);
 		}		
 	}
 
@@ -625,12 +619,12 @@ public:
 			if (!staffLineHeight) //Has no assigned value yet
 			{
 				if (graphStats[i].pixVal) //pixel is black
-					staffLineHeight = graphStats[i].pixVal; //Assign value to StaffLineHeight
+					staffLineHeight = graphStats[i].runVal; //Assign value to StaffLineHeight
 			}
 			if (!staffSpaceDistance) //Has no assigned value yet
 			{
 				if (!graphStats[i].pixVal) //pixel is white
-					staffSpaceDistance = graphStats[i].pixVal; //Assign value to StaffSpaceDistance
+					staffSpaceDistance = graphStats[i].runVal; //Assign value to StaffSpaceDistance
 			}
 		}
 	}
@@ -656,6 +650,8 @@ public:
 	void stableStaffDetection(vector <vector <Point> > &validStaves, T &image)
 	{
 		constructGraphWeights(image);
+		OneBitImageView* imgErode = myCloneImage(image);
+		myVerticalErodeImage(imgErode);
 		// myIplImage* imgErode  = myCloneImage(img);
 		// myVerticalErodeImage (imgErode);
 		// myIplImage* imgErodedCopy  = myCloneImage (imgErode);
@@ -704,7 +700,7 @@ public:
 
 				double bestBlackPerc = medianSumOfValues/(1.0*bestStaff.size());
 				blackPerc = max(MIN_BLACK_PER, bestBlackPerc*0.8);
-				//cout <<"bestBlackPerc: " <<bestBlackPerc <<" blackPerc: " <<blackPerc <<endl
+				cout <<"bestBlackPerc: " <<bestBlackPerc <<" blackPerc: " <<blackPerc <<endl
 			}
 
 			for (size_t i = 0; i < stablePaths.size(); i++)
@@ -773,7 +769,7 @@ float returnGraphWeights(T &image)
 	vector <vector<Point> > validStaves;
 	stableStaffLineFinder slf1 (image);
 	slf1.constructGraphWeights(image);
-	slf1.findStaffHeightandDistance(image, validStaves);
+	slf1.findStaffHeightandDistanceNoVectors(image);
 	return slf1.staffSpaceDistance;
 }
 
@@ -783,6 +779,6 @@ OneBitImageView* copyImage(T &image)
 	stableStaffLineFinder slf1 (image);
 	OneBitImageView* new1 = slf1.myCloneImage(image);
 	printf("Rows: %lu, Columns: %lu \n", image.nrows(), image.ncols());
-	slf1.myVerticalErodeImage(new1, 3479, 1820);
+	slf1.myVerticalErodeImage(new1, image.ncols(), image.nrows());
 	return new1;
 }
